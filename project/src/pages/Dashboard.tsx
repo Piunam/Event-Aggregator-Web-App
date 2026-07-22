@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar } from 'lucide-react';
 import { Event, FilterOptions } from '../types';
 import EventCard from '../components/EventCard';
 import FilterBar from '../components/FilterBar';
-import { events as mockEvents, uniqueColleges, uniqueLocations } from '../utils/mockData';
-import { filterEvents, sortEventsByDate } from '../utils/filters';
+import { fetchEvents } from '../lib/events';
+import { filterEvents } from '../utils/filters';
 
 const Dashboard: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterOptions>({
     search: '',
     dateRange: { start: null, end: null },
@@ -16,26 +17,46 @@ const Dashboard: React.FC = () => {
     colleges: [],
     locations: []
   });
-  
-  // Initialize data
+
+  // Load events from Supabase
   useEffect(() => {
-    // In a real app, this would be an API call
-    const sortedEvents = sortEventsByDate(mockEvents);
-    setEvents(sortedEvents);
-    setFilteredEvents(sortedEvents);
+    let cancelled = false;
+
+    fetchEvents()
+      .then(data => {
+        if (!cancelled) setEvents(data);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load events. Please try again later.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
-  
-  // Apply filters when they change
-  useEffect(() => {
-    const filtered = filterEvents(events, filters);
-    setFilteredEvents(filtered);
-  }, [events, filters]);
-  
+
+  const uniqueColleges = useMemo(
+    () => [...new Set(events.map(event => event.college))],
+    [events]
+  );
+  const uniqueLocations = useMemo(
+    () => [...new Set(events.map(event => event.location))],
+    [events]
+  );
+
+  const filteredEvents = useMemo(
+    () => filterEvents(events, filters),
+    [events, filters]
+  );
+
   // Handle filter changes
   const handleFilterChange = (newFilters: FilterOptions) => {
     setFilters(newFilters);
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
       {/* Header */}
@@ -51,27 +72,45 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center text-indigo-200">
               <Calendar className="h-5 w-5 mr-2" />
               <span>
-                {filteredEvents.length} events available
+                {loading ? 'Loading events…' : `${filteredEvents.length} events available`}
               </span>
             </div>
           </div>
         </div>
       </div>
-      
+
       <div className="container mx-auto px-4 -mt-8">
         {/* Filters */}
-        <FilterBar 
-          filters={filters} 
+        <FilterBar
+          filters={filters}
           onFilterChange={handleFilterChange}
           uniqueColleges={uniqueColleges}
           uniqueLocations={uniqueLocations}
         />
-        
+
         {/* Events Grid */}
-        {filteredEvents.length > 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-16">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden animate-pulse">
+                <div className="h-48 bg-gray-200"></div>
+                <div className="p-6 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center my-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 max-w-lg mx-auto">{error}</p>
+          </div>
+        ) : filteredEvents.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-16">
             {filteredEvents.map(event => (
-              <div 
+              <div
                 key={event.id}
                 className="transform transition-all duration-300 hover:scale-[1.02]"
               >

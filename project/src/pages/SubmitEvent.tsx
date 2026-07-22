@@ -2,14 +2,11 @@ import React from 'react';
 import { PlusCircle } from 'lucide-react';
 import EventForm from '../components/EventForm';
 import { Event } from '../types';
+import { createEvent } from '../lib/events';
 
 const SubmitEvent: React.FC = () => {
-  const handleSubmit = (eventData: Omit<Event, 'id'>) => {
-    // In a real app, this would be an API call to save the event
-    console.log('Event submitted:', eventData);
-    
-    // Here you would typically send this data to your backend
-    // For now, we'll just log it to the console
+  const handleSubmit = async (eventData: Omit<Event, 'id'>) => {
+    await createEvent(eventData);
   };
   
   return (

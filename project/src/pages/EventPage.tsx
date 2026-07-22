@@ -3,35 +3,44 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Event } from '../types';
 import EventDetail from '../components/EventDetail';
-import { events as mockEvents } from '../utils/mockData';
+import { fetchEventById } from '../lib/events';
 
 const EventPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
-    // In a real app, this would be an API call
-    try {
-      // Simulate network request
-      const timer = setTimeout(() => {
-        const foundEvent = mockEvents.find(e => e.id === id);
-        
-        if (foundEvent) {
-          setEvent(foundEvent);
+    if (!id) {
+      setError('Event not found');
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    fetchEventById(id)
+      .then(found => {
+        if (cancelled) return;
+        if (found) {
+          setEvent(found);
         } else {
           setError('Event not found');
         }
-        
-        setLoading(false);
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    } catch (err) {
-      setError('Failed to load event');
-      setLoading(false);
-    }
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load event');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
   
   if (loading) {

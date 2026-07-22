@@ -4,7 +4,7 @@ import { Event, EventType } from '../types';
 import { eventTypeOptions } from '../utils/filters';
 
 interface EventFormProps {
-  onSubmit: (event: Omit<Event, 'id'>) => void;
+  onSubmit: (event: Omit<Event, 'id'>) => Promise<void>;
 }
 
 const EventForm: React.FC<EventFormProps> = ({ onSubmit }) => {
@@ -19,9 +19,11 @@ const EventForm: React.FC<EventFormProps> = ({ onSubmit }) => {
     link: '',
     image: ''
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -78,11 +80,16 @@ const EventForm: React.FC<EventFormProps> = ({ onSubmit }) => {
     }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (validateForm()) {
-      onSubmit(formData);
+
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await onSubmit(formData);
       setSubmitted(true);
       // Reset form after submission
       setFormData({
@@ -96,6 +103,12 @@ const EventForm: React.FC<EventFormProps> = ({ onSubmit }) => {
         link: '',
         image: ''
       });
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Failed to submit event. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -313,11 +326,15 @@ const EventForm: React.FC<EventFormProps> = ({ onSubmit }) => {
       </div>
       
       <div className="mt-8">
+        {submitError && (
+          <p className="text-red-600 text-sm text-center mb-4">{submitError}</p>
+        )}
         <button
           type="submit"
-          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition font-medium"
+          disabled={isSubmitting}
+          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white rounded-md transition font-medium"
         >
-          Submit Event
+          {isSubmitting ? 'Submitting…' : 'Submit Event'}
         </button>
         <p className="text-gray-500 text-xs text-center mt-4">
           By submitting this event, you confirm that all provided information is accurate and complete.
